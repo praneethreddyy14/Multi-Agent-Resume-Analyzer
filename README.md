@@ -16,7 +16,7 @@ TypeScript/Node.js bot that copies a target trader’s Polymarket activity: poll
 ## Setup
 
 ```bash
-cd Polymarket-Copy-Trading-Bot
+cd polymarket-copy-trading-bot
 npm install
 cp .env.example .env
 # Edit .env: COPY_TARGET_USER or COPY_TARGET_PROXY, keys, FUNDER_ADDRESS
