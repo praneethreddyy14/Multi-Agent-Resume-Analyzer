@@ -1,4 +1,4 @@
-# Polymarket Copy Trading Bot
+# polymarket copy trading bot
 
 TypeScript/Node.js bot that copies a target trader’s Polymarket activity: polls their public activity, then places limit orders on your account (same market, configurable size).
 
