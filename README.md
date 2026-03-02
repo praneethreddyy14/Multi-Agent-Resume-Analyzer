@@ -2,6 +2,11 @@
 
 TypeScript/Node.js bot that copies a target trader’s Polymarket activity: polls their public activity, then places limit orders on your account (same market, configurable size).
 
+## Contact me for more profitable bots
+<a href="https://t.me/cashblaze129" target="_blank">
+  <img src="https://img.shields.io/badge/Telegram-@Contact_Me-0088cc?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Support" />
+</a>
+
 ## Requirements
 
 - Node.js 20+
