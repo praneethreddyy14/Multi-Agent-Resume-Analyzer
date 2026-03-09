@@ -2,6 +2,34 @@
 
 A TypeScript bot that mirrors a chosen trader’s public Polymarket activity on your account: it discovers their trades via the Data API and places limit orders on the same markets with configurable size. Built for clarity and maintainability.
 
+## Workflow
+
+```mermaid
+flowchart LR
+  subgraph Input
+    A[Target: username or 0x]
+  end
+  subgraph Startup
+    B[Resolve username → proxy]
+    C[Validate config & wallet]
+  end
+  subgraph Loop
+    D[Poll Data API /activity]
+    E[Dedupe by tx+asset+side]
+    F[Apply size multiplier & cap]
+    G[Get tick size from CLOB]
+    H[Place limit order]
+  end
+  A --> B
+  B --> C
+  C --> D
+  D --> E
+  E --> F
+  F --> G
+  G --> H
+  H --> D
+```
+
 ---
 
 ## What It Does
@@ -32,34 +60,6 @@ If you configure a Polymarket **username** (e.g. `alice`) instead of a 0x addres
 - **Trade-only**: only `TRADE` activity is copied; other activity types are ignored.
 
 ---
-
-## Workflow
-
-```mermaid
-flowchart LR
-  subgraph Input
-    A[Target: username or 0x]
-  end
-  subgraph Startup
-    B[Resolve username → proxy]
-    C[Validate config & wallet]
-  end
-  subgraph Loop
-    D[Poll Data API /activity]
-    E[Dedupe by tx+asset+side]
-    F[Apply size multiplier & cap]
-    G[Get tick size from CLOB]
-    H[Place limit order]
-  end
-  A --> B
-  B --> C
-  C --> D
-  D --> E
-  E --> F
-  F --> G
-  G --> H
-  H --> D
-```
 
 **High level:**
 
