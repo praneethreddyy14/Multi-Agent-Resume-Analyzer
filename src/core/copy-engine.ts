@@ -1,7 +1,7 @@
-import { getActivity, tradeEventKey } from "./data-api.js";
-import { getTickSize, placeLimitOrder } from "./clob.js";
-import { config } from "./config.js";
-import { getCopyTarget } from "./target.js";
+import { getActivity, tradeEventKey } from "../services/data-api.js";
+import { getTickSize, placeLimitOrder } from "../services/clob.js";
+import { config } from "../config/index.js";
+import { getCopyTarget } from "../utils/target.js";
 
 const SEEN_CAP = 10_000;
 const seen = new Set<string>();
@@ -21,7 +21,11 @@ function applySizeLimit(size: number, price: number): number {
   return Math.max(0.01, Math.round(s * 100) / 100);
 }
 
-export async function pollAndCopy(): Promise<{ fetched: number; copied: number; errors: string[] }> {
+export async function pollAndCopy(): Promise<{
+  fetched: number;
+  copied: number;
+  errors: string[];
+}> {
   const errors: string[] = [];
   const user = getCopyTarget() || config.targetUser;
   if (!user) return { fetched: 0, copied: 0, errors: ["No target user"] };
@@ -53,15 +57,21 @@ export async function pollAndCopy(): Promise<{ fetched: number; copied: number; 
     const side = a.side;
     const orderSize = applySizeLimit(size, price);
 
-    let tickSize = "0.01";
+    let tickSize: string | null = null;
     try {
       tickSize = await getTickSize(tokenId);
     } catch (e) {
       errors.push(`tick ${tokenId}: ${e instanceof Error ? e.message : e}`);
     }
+    if (tickSize === null) {
+      errors.push(`Skip: no orderbook for token ${tokenId.slice(0, 12)}... (market may be closed or resolved)`);
+      continue;
+    }
 
     if (config.dryRun) {
-      console.log(`[DRY RUN] Would place ${side} ${orderSize} @ ${price} on ${tokenId} (tick=${tickSize})`);
+      console.log(
+        `[DRY RUN] Would place ${side} ${orderSize} @ ${price} on ${tokenId} (tick=${tickSize})`
+      );
       copied++;
       continue;
     }
@@ -70,7 +80,9 @@ export async function pollAndCopy(): Promise<{ fetched: number; copied: number; 
     if (result.error) {
       errors.push(`${tokenId} ${side}: ${result.error}`);
     } else {
-      console.log(`Copied: ${side} ${orderSize} @ ${price} token=${tokenId.slice(0, 10)}... orderID=${result.orderID ?? "ok"}`);
+      console.log(
+        `Copied: ${side} ${orderSize} @ ${price} token=${tokenId.slice(0, 10)}... orderID=${result.orderID ?? "ok"}`
+      );
       copied++;
     }
   }

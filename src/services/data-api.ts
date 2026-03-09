@@ -1,7 +1,14 @@
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
-export type ActivityType = "TRADE" | "SPLIT" | "MERGE" | "REDEEM" | "REWARD" | "CONVERSION" | "MAKER_REBATE";
+export type ActivityType =
+  | "TRADE"
+  | "SPLIT"
+  | "MERGE"
+  | "REDEEM"
+  | "REWARD"
+  | "CONVERSION"
+  | "MAKER_REBATE";
 
 export interface Activity {
   proxyWallet?: string;
@@ -44,7 +51,10 @@ export function buildActivityUrl(base: string, params: GetActivityParams): strin
   return u.toString();
 }
 
-export async function getActivity(base: string, params: GetActivityParams): Promise<Activity[]> {
+export async function getActivity(
+  base: string,
+  params: GetActivityParams
+): Promise<Activity[]> {
   const url = buildActivityUrl(base, params);
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`Data API activity ${res.status}: ${await res.text()}`);

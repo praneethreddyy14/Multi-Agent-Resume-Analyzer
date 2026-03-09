@@ -1,6 +1,6 @@
 import { ClobClient, Side, OrderType } from "@polymarket/clob-client";
 import { Wallet } from "ethers";
-import { config } from "./config.js";
+import { config } from "../config/index.js";
 
 const VALID_TICK_SIZES = ["0.1", "0.01", "0.001", "0.0001"] as const;
 type TickSize = (typeof VALID_TICK_SIZES)[number];
@@ -24,7 +24,6 @@ function getApiCreds(): { key: string; secret: string; passphrase: string } | nu
   return null;
 }
 
-/** Returns CLOB client; if API creds are missing and autoDeriveApiKey is true, derives them via createOrDeriveApiKey(). */
 export async function getClobClient(): Promise<ClobClient> {
   if (client) return client;
   if (clientPromise) return clientPromise;
@@ -50,7 +49,10 @@ export async function getClobClient(): Promise<ClobClient> {
       creds = await authOnly.createOrDeriveApiKey();
       console.log("Derived API key (key=%s...)", (creds!.key ?? "").slice(0, 8));
     }
-    if (!creds) throw new Error("No API creds: set POLYMARKET_API_KEY/SECRET/PASSPHRASE or POLYMARKET_AUTO_DERIVE_API_KEY=true");
+    if (!creds)
+      throw new Error(
+        "No API creds: set POLYMARKET_API_KEY/SECRET/PASSPHRASE or POLYMARKET_AUTO_DERIVE_API_KEY=true"
+      );
     client = new ClobClient(
       config.clobUrl,
       config.chainId,
@@ -89,10 +91,11 @@ export async function getOrderBook(tokenId: string): Promise<OrderBookSummary | 
   }
 }
 
-export async function getTickSize(tokenId: string): Promise<string> {
+/** Returns tick size string, or null if no orderbook (e.g. market closed/resolved). */
+export async function getTickSize(tokenId: string): Promise<string | null> {
   const book = await getOrderBook(tokenId);
-  if (book?.tick_size) return toTickSize(book.tick_size);
-  return "0.01";
+  if (!book) return null;
+  return book.tick_size ? toTickSize(book.tick_size) : "0.01";
 }
 
 export async function placeLimitOrder(

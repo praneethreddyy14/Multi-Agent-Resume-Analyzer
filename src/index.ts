@@ -1,10 +1,10 @@
 import "dotenv/config";
 import { createRequire } from "node:module";
 createRequire(import.meta.url)("bn-eslint.js");
-import { config, validateConfig } from "./config.js";
-import { pollAndCopy } from "./copy-engine.js";
-import { setCopyTarget } from "./target.js";
-import { isProxyAddress, resolveUsernameToProxy } from "./resolve.js";
+import { config, validateConfig } from "./config/index.js";
+import { pollAndCopy } from "./core/copy-engine.js";
+import { setCopyTarget } from "./utils/target.js";
+import { isProxyAddress, resolveUsernameToProxy } from "./utils/resolve.js";
 
 async function main(): Promise<void> {
   const err = validateConfig();
@@ -20,7 +20,9 @@ async function main(): Promise<void> {
       target = proxy;
       console.log("Resolved username to proxy:", proxy.slice(0, 10) + "...");
     } else {
-      console.error("Could not resolve username to proxy; use COPY_TARGET_PROXY with 0x address");
+      console.error(
+        "Could not resolve username to proxy; use COPY_TARGET_PROXY with 0x address"
+      );
       process.exit(1);
     }
   }

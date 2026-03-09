@@ -13,7 +13,6 @@ export function normalizeUsername(u: string | undefined): string | null {
   return s.startsWith("@") ? s.slice(1) : s;
 }
 
-/** Resolve Polymarket username to proxy address by scraping profile page. */
 export async function resolveUsernameToProxy(username: string): Promise<string | null> {
   const sanitized = normalizeUsername(username);
   if (!sanitized) return null;

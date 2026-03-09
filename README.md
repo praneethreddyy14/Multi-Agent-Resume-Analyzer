@@ -1,60 +1,93 @@
 # polymarket copy trading bot
 
-TypeScript/Node.js bot that copies a target trader’s Polymarket activity: polls their public activity, then places limit orders on your account (same market, configurable size).
+A TypeScript bot that mirrors a chosen trader’s public Polymarket activity on your account: it discovers their trades via the Data API and places limit orders on the same markets with configurable size. Built for clarity and maintainability.
 
-## Contact me for more profitable bots
-<a href="https://t.me/cashblaze129" target="_blank">
-  <img src="https://img.shields.io/badge/Telegram-@Contact_Me-0088cc?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Support" />
-</a>
+---
+
+## What It Does
+
+You pick a **target** (by Polymarket username or proxy wallet). The bot periodically fetches that target’s recent **TRADE** activity, deduplicates it, then for each new trade it:
+
+- Applies your size rules (multiplier and optional per-order cap)
+- Fetches the market’s tick size from the CLOB
+- Submits a **limit order** on your behalf (same side and price, adjusted size)
+
+Settlement stays on-chain and non-custodial; the bot only signs orders through the Polymarket CLOB.
+
+---
+
+## Strategy
+
+**Detection**  
+Trades are discovered from Polymarket’s public **Data API** (`/activity?user=…&type=TRADE`). The bot polls at a fixed interval (e.g. every 15 seconds). Each trade is uniquely identified by transaction hash, asset, and side so the same fill is never copied twice.
+
+**Execution**  
+Orders are sent to the **CLOB** as Good-Till-Cancelled (GTC) limit orders at the same price as the copied trade. Size is derived from the target’s size using a multiplier and an optional maximum notional per order. Tick size is read from the order book so prices conform to the market’s rules.
+
+**Target resolution**  
+If you configure a Polymarket **username** (e.g. `alice`) instead of a 0x address, the bot resolves it once at startup by loading the profile page and reading the proxy address from the embedded data. After that, all polling uses the resolved proxy.
+
+**Safety**  
+- **Size controls**: `COPY_SIZE_MULTIPLIER` and `COPY_MAX_ORDER_USD` keep copied size within your chosen range.  
+- **Trade-only**: only `TRADE` activity is copied; other activity types are ignored.
+
+---
+
+## Workflow
+
+```mermaid
+flowchart LR
+  subgraph Input
+    A[Target: username or 0x]
+  end
+  subgraph Startup
+    B[Resolve username → proxy]
+    C[Validate config & wallet]
+  end
+  subgraph Loop
+    D[Poll Data API /activity]
+    E[Dedupe by tx+asset+side]
+    F[Apply size multiplier & cap]
+    G[Get tick size from CLOB]
+    H[Place limit order]
+  end
+  A --> B
+  B --> C
+  C --> D
+  D --> E
+  E --> F
+  F --> G
+  G --> H
+  H --> D
+```
+
+**High level:**
+
+1. **Startup** — Resolve target (username → proxy if needed), validate environment and wallet/API settings.
+2. **Poll** — Request the target’s recent activity (TRADE only, newest first).
+3. **Dedupe** — Skip events already seen (in-memory set keyed by transaction hash, asset, side).
+4. **Size** — Compute order size: `size × multiplier`, then cap by `COPY_MAX_ORDER_USD` if set.
+5. **Order** — Fetch tick size for the token, then create and post a GTC limit order at the same price.
+
+
+---
+
+## Configuration
+
+All behavior is driven by environment variables (see `.env.example`). Important groups:
+
+| Purpose | Variables |
+|--------|-----------|
+| **Target** | `COPY_TARGET_USER` (username) or `COPY_TARGET_PROXY` (0x). One required. |
+| **Copy behavior** | `COPY_POLL_INTERVAL_MS`, `COPY_ACTIVITY_LIMIT`, `COPY_SIZE_MULTIPLIER`, `COPY_MAX_ORDER_USD`, `COPY_TRADES_ONLY`, `COPY_DRY_RUN`. |
+| **Wallet & API** | `POLYMARKET_PRIVATE_KEY`, `POLYMARKET_ADDRESS` (or `POLYMARKET_ADDRESS`). Optional: `POLYMARKET_API_KEY`, `POLYMARKET_API_SECRET`, `POLYMARKET_API_PASSPHRASE`; if omitted, the bot can derive API credentials. |
+
+
+---
 
 ## Requirements
 
-- Node.js 20+
-- Polymarket account and API credentials (for live trading)
-- Target: Polymarket **username** or **proxy wallet address** (0x…)
+- A Polymarket account and a wallet that can sign for your proxy/funder address
+- Target: Polymarket username or proxy wallet address (0x…)
 
-## Setup
-
-```bash
-cd polymarket-copy-trading-bot
-npm install
-cp .env.example .env
-# Edit .env: COPY_TARGET_USER or COPY_TARGET_PROXY, keys, FUNDER_ADDRESS
-```
-
-## Config (.env)
-
-| Variable | Description |
-|----------|-------------|
-| `COPY_TARGET_USER` | Username to copy (e.g. `alice`). Resolved to proxy via profile page. |
-| `COPY_TARGET_PROXY` | Or set proxy address directly (`0x...`). |
-| `COPY_POLL_INTERVAL_MS` | Poll Data API every N ms (default 15000). |
-| `COPY_ACTIVITY_LIMIT` | Trades per poll (default 100, max 500). |
-| `COPY_SIZE_MULTIPLIER` | Multiply copied size (1 = same, 0.5 = half). |
-| `COPY_MAX_ORDER_USD` | Cap notional per order (0 = no cap). |
-| `COPY_DRY_RUN` | `true`: only log, no orders. |
-| `POLYMARKET_PRIVATE_KEY` | Wallet private key (0x + 64 hex). |
-| `POLYMARKET_FUNDER_ADDRESS` | Your Polymarket proxy/funder address. |
-| `POLYMARKET_API_KEY`, `POLYMARKET_API_SECRET`, `POLYMARKET_API_PASSPHRASE` | Optional. If empty, the bot derives API creds via `createOrDeriveApiKey()` (set `POLYMARKET_AUTO_DERIVE_API_KEY=true`, default). |
-
-## Run
-
-```bash
-# Dry run (no real orders)
-COPY_DRY_RUN=true npm run dev
-
-# Live (load .env yourself or use dotenv)
-npm run dev
-# or
-node --env-file=.env dist/index.js
-```
-
-## Flow
-
-1. Resolve target: if `COPY_TARGET_USER` is not 0x, fetch `https://polymarket.com/@{user}` and read `__NEXT_DATA__.props.pageProps.proxyAddress`.
-2. Every `COPY_POLL_INTERVAL_MS`: GET `https://data-api.polymarket.com/activity?user={proxy}&type=TRADE&limit=...&sortDirection=DESC`.
-3. For each new TRADE (deduped by tx+asset+side): get token tick size from CLOB, apply size multiplier/cap, place limit order via `@polymarket/clob-client`.
-
-## Disclaimer
-
-Use at your own risk. Copying others’ trades can lose money. Prefer `COPY_DRY_RUN=true` until you are satisfied with behavior.
+---
